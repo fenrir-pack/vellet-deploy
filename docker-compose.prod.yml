@@ -1,36 +1,27 @@
 # Production compose for Hostinger Docker Manager.
 #
-# Fetched by URL (raw GitHub) and deployed on a Hostinger VPS that uses the
-# bundled Traefik (network_mode: host on :80/:443 with Let's Encrypt resolver
-# `letsencrypt`). The `api` service exposes itself via Traefik labels — no
-# Caddy required on this VPS.
+# Fetched by URL (raw GitHub) and deployed on a Hostinger VPS that already has:
+#   1. Traefik (host network, :80/:443, Let's Encrypt resolver `letsencrypt`).
+#   2. A `postgresql-u7cy` compose project running Postgres 17. We attach our
+#      api container to its docker network and reach it via the service alias
+#      `postgresql:5432` — no second Postgres container needed.
 #
 # One-time setup on the VPS terminal (private GHCR images):
 #   echo "<GHCR_PAT>" | docker login ghcr.io -u <github-user> --password-stdin
 # PAT scope: read:packages.
 #
-# For local dev or build-on-host fallback (no Traefik), use docker-compose.yml.
+# For local dev or build-on-host fallback (no Traefik, no shared Postgres),
+# use docker-compose.yml instead.
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_DB: vellet
-      POSTGRES_USER: vellet
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U vellet -d vellet']
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
   api:
     image: ghcr.io/fenrir-pack/vellet-api:latest
+    networks:
+      - default
+      - postgres
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=vellet-deploy_default"
       - "traefik.http.routers.vellet-api.rule=Host(`api.vellet.app`)"
       - "traefik.http.routers.vellet-api.entrypoints=websecure"
       - "traefik.http.routers.vellet-api.tls.certresolver=letsencrypt"
@@ -54,11 +45,11 @@ services:
       - FX_BASES=${FX_BASES:-USD,EUR,MXN}
       - FX_TARGETS=${FX_TARGETS:-USD,EUR,MXN,GBP,JPY,COP,CLP,ARS}
       - WORKERS_ENABLED=${WORKERS_ENABLED:-true}
-    depends_on:
-      postgres:
-        condition: service_healthy
     restart: unless-stopped
     mem_limit: 2g
 
-volumes:
-  pgdata:
+networks:
+  default:
+  postgres:
+    name: postgresql-u7cy_default
+    external: true
