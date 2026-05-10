@@ -17,13 +17,13 @@ services:
   api:
     image: ghcr.io/fenrir-pack/vellet-api:latest
     networks:
-      - default
       - postgres
     ports:
-      # Bind to localhost only so the host-network Traefik can reach :3000.
-      # Hostinger Traefik (network_mode: host) cannot otherwise route to a
-      # container that lives only on a docker bridge.
-      - "127.0.0.1:3000:3000"
+      # Public bind so the host-network Traefik can route consistently and the
+      # container is reachable via 0.0.0.0:3000 just like the bundled
+      # openclaw-dbmc project. UFW/Hostinger firewall keeps :3000 off the
+      # public internet.
+      - "3000:3000"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.vellet-api.rule=Host(`api.vellet.app`)"
@@ -53,7 +53,6 @@ services:
     mem_limit: 2g
 
 networks:
-  default:
   postgres:
     name: postgresql-u7cy_default
     external: true
