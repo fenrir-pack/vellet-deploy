@@ -1,15 +1,15 @@
 # Production compose for Hostinger Docker Manager.
 #
-# This file is fetched by URL (https://raw.githubusercontent.com/<owner>/vellet-app/main/docker-compose.prod.yml)
-# so it MUST be self-contained: no `build:` directives, no local volume mounts.
-# All container content ships as pre-built images on GHCR; secrets are
-# supplied via env vars in the Hostinger UI (or a .env on the VPS).
+# Fetched by URL (raw GitHub) and deployed on a Hostinger VPS that uses the
+# bundled Traefik (network_mode: host on :80/:443 with Let's Encrypt resolver
+# `letsencrypt`). The `api` service exposes itself via Traefik labels — no
+# Caddy required on this VPS.
 #
-# One-time setup on the VPS terminal (private images):
+# One-time setup on the VPS terminal (private GHCR images):
 #   echo "<GHCR_PAT>" | docker login ghcr.io -u <github-user> --password-stdin
 # PAT scope: read:packages.
 #
-# For local dev or build-on-host fallback, use docker-compose.yml instead.
+# For local dev or build-on-host fallback (no Traefik), use docker-compose.yml.
 
 services:
   postgres:
@@ -29,8 +29,12 @@ services:
 
   api:
     image: ghcr.io/fenrir-pack/vellet-api:latest
-    expose:
-      - '3000'
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vellet-api.rule=Host(`api.vellet.app`)"
+      - "traefik.http.routers.vellet-api.entrypoints=websecure"
+      - "traefik.http.routers.vellet-api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.vellet-api.loadbalancer.server.port=3000"
     environment:
       - NODE_ENV=production
       - LOG_LEVEL=${LOG_LEVEL:-info}
@@ -56,19 +60,5 @@ services:
     restart: unless-stopped
     mem_limit: 2g
 
-  caddy:
-    image: ghcr.io/fenrir-pack/vellet-caddy:latest
-    ports:
-      - '80:80'
-      - '443:443'
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - api
-    restart: unless-stopped
-
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:
