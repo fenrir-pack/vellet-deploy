@@ -19,9 +19,13 @@ services:
     networks:
       - default
       - postgres
+    ports:
+      # Bind to localhost only so the host-network Traefik can reach :3000.
+      # Hostinger Traefik (network_mode: host) cannot otherwise route to a
+      # container that lives only on a docker bridge.
+      - "127.0.0.1:3000:3000"
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=vellet-deploy_default"
       - "traefik.http.routers.vellet-api.rule=Host(`api.vellet.app`)"
       - "traefik.http.routers.vellet-api.entrypoints=websecure"
       - "traefik.http.routers.vellet-api.tls.certresolver=letsencrypt"
