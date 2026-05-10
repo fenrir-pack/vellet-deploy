@@ -1,0 +1,74 @@
+# Production compose for Hostinger Docker Manager.
+#
+# This file is fetched by URL (https://raw.githubusercontent.com/<owner>/vellet-app/main/docker-compose.prod.yml)
+# so it MUST be self-contained: no `build:` directives, no local volume mounts.
+# All container content ships as pre-built images on GHCR; secrets are
+# supplied via env vars in the Hostinger UI (or a .env on the VPS).
+#
+# One-time setup on the VPS terminal (private images):
+#   echo "<GHCR_PAT>" | docker login ghcr.io -u <github-user> --password-stdin
+# PAT scope: read:packages.
+#
+# For local dev or build-on-host fallback, use docker-compose.yml instead.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: vellet
+      POSTGRES_USER: vellet
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vellet -d vellet']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/fenrir-pack/vellet-api:latest
+    expose:
+      - '3000'
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - APPLE_CLIENT_ID=${APPLE_CLIENT_ID:-com.venegasdev.vellet}
+      - APPLE_TEAM_ID=${APPLE_TEAM_ID:-}
+      - APPLE_KEY_ID=${APPLE_KEY_ID:-}
+      - APPLE_PRIVATE_KEY=${APPLE_PRIVATE_KEY:-}
+      - GOOGLE_WEB_CLIENT_ID=${GOOGLE_WEB_CLIENT_ID:-}
+      - GOOGLE_IOS_CLIENT_ID=${GOOGLE_IOS_CLIENT_ID:-}
+      - GOOGLE_ANDROID_CLIENT_ID=${GOOGLE_ANDROID_CLIENT_ID:-}
+      - EXPO_PUSH_ACCESS_TOKEN=${EXPO_PUSH_ACCESS_TOKEN:-}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - FX_BASES=${FX_BASES:-USD,EUR,MXN}
+      - FX_TARGETS=${FX_TARGETS:-USD,EUR,MXN,GBP,JPY,COP,CLP,ARS}
+      - WORKERS_ENABLED=${WORKERS_ENABLED:-true}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    mem_limit: 2g
+
+  caddy:
+    image: ghcr.io/fenrir-pack/vellet-caddy:latest
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
