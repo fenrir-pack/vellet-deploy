@@ -19,11 +19,10 @@ services:
     networks:
       - postgres
     ports:
-      # Public bind so the host-network Traefik can route consistently and the
-      # container is reachable via 0.0.0.0:3000 just like the bundled
-      # openclaw-dbmc project. UFW/Hostinger firewall keeps :3000 off the
-      # public internet.
-      - "3000:3000"
+      # Bind to localhost only. The API is reached from the public internet
+      # exclusively through a Cloudflare tunnel/proxy (or a future Traefik
+      # router) — never directly via the host IP.
+      - "127.0.0.1:3000:3000"
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.vellet-api.rule=Host(`api.vellet.app`)"
