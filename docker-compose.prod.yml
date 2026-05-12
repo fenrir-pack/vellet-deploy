@@ -51,6 +51,15 @@ services:
     restart: unless-stopped
     mem_limit: 2g
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    # host network so the tunnel can reach the api published on 127.0.0.1:3000.
+    network_mode: host
+    depends_on:
+      - api
+    restart: unless-stopped
+
 networks:
   postgres:
     name: postgresql-u7cy_default
