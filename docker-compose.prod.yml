@@ -51,13 +51,23 @@ services:
     restart: unless-stopped
     mem_limit: 2g
 
+  landing:
+    image: ghcr.io/fenrir-pack/vellet-landing:latest
+    ports:
+      # Loopback only — Cloudflare Tunnel reaches it via localhost:8081.
+      - "127.0.0.1:8081:80"
+    restart: unless-stopped
+    mem_limit: 128m
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
-    # host network so the tunnel can reach the api published on 127.0.0.1:3000.
+    # host network so the tunnel can reach api on 127.0.0.1:3000 and the
+    # landing on 127.0.0.1:8081.
     network_mode: host
     depends_on:
       - api
+      - landing
     restart: unless-stopped
 
 networks:
